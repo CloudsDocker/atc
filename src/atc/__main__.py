@@ -13,7 +13,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--fake", action="store_true",
                         help="run against fake data; needs no AWS, k8s or network")
     parser.add_argument("--config", help="path to config.toml")
+    parser.add_argument("command", nargs="?", help="subcommand (e.g. configure)")
     args = parser.parse_args(argv)
+
+    if args.command == "configure":
+        from .wizard import run_wizard
+        try:
+            run_wizard()
+        except KeyboardInterrupt:
+            pass
+        return 0
 
     from .tui.app import AtcApp
 
@@ -30,6 +39,16 @@ def main(argv: list[str] | None = None) -> int:
         profile = conf.get(args.profile)
         provider = profile.build()
     except AtcError as e:
+        if str(e).startswith("no config at"):
+            print("No configuration found. Launching setup wizard...\n")
+            from .wizard import run_wizard
+            try:
+                run_wizard()
+                print("\nPlease run `atc` again to start.")
+            except KeyboardInterrupt:
+                pass
+            return 0
+        
         print(f"atc: {e}", file=sys.stderr)
         return 1
 
