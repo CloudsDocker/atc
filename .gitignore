@@ -8,3 +8,4 @@ dist/
 # never commit real environment names / connection details
 config.toml
 favorites.json
+*/.env
