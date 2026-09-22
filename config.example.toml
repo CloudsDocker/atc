@@ -1,0 +1,43 @@
+# Copy to ~/.config/atc/config.toml and fill in your own environment names.
+# This file holds NO secrets: k8s passwords are read from the cluster secret at
+# runtime, AWS goes through the normal credential chain.
+#
+# Favourites are NOT here — the app owns ~/.config/atc/favorites.json.
+
+default = "dev-k8s"
+
+# --- Airflow inside a Kubernetes cluster, reached by port-forward -------------
+[profiles.dev-k8s]
+type      = "k8s"
+context   = "YOUR-KUBE-CONTEXT"
+namespace = "YOUR-AIRFLOW-NAMESPACE"
+service   = "airflow-api-server-cluster-ip-service"
+port      = 8080
+secret    = "airflow-secret"
+
+# --- MWAA ---------------------------------------------------------------------
+# MWAA environment names follow no pattern across environments, so each one must be
+# written out. List the real names with:
+#   aws mwaa list-environments --profile <aws-profile> --region <region>
+[profiles.mwaa-dev]
+type        = "mwaa"
+environment = "YOUR-MWAA-DEV-ENV-NAME"
+region      = "YOUR-REGION"
+aws_profile = "YOUR-AWS-PROFILE"
+strategy    = "auto"          # auto | invoke_rest_api | web_login_token
+
+[profiles.mwaa-sit]
+type        = "mwaa"
+environment = "YOUR-MWAA-SIT-ENV-NAME"
+region      = "YOUR-REGION"
+aws_profile = "YOUR-AWS-PROFILE"
+strategy    = "auto"
+
+# If an account runs Airflow 2 and 3 side by side, give each its own profile.
+# MVP only speaks the Airflow 3 API — a v2 environment will not work yet.
+# [profiles.mwaa-prd-v3]
+# type        = "mwaa"
+# environment = "YOUR-MWAA-PRD-V3-ENV-NAME"
+# region      = "YOUR-REGION"
+# aws_profile = "YOUR-AWS-PROFILE"
+# readonly    = true          # blocks trigger outright
