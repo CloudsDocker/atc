@@ -1,0 +1,75 @@
+name: Bug report
+description: Something in atc behaves differently from what it claims.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing: please check whether the same thing happens with `atc --fake`.
+        If it does, the bug is in the TUI or the core and needs no credentials to
+        reproduce — say so, it makes the fix much faster.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you saw, and what you expected instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. atc -p dev-k8s
+        2. press `a`, star `vendor_feed_import`
+        3. press enter
+    validations:
+      required: true
+
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Which provider
+      options:
+        - fake (--fake)
+        - k8s (port-forward)
+        - mwaa
+        - not sure
+    validations:
+      required: true
+
+  - type: input
+    id: airflow-version
+    attributes:
+      label: Airflow version
+      description: The version shown in the connection bar, e.g. 3.1.0.
+      placeholder: "3.1.0"
+
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      description: Output of `atc --version` is not available yet — paste the below instead.
+      value: |
+        - OS:
+        - Python: (python -V)
+        - atc: (pip show atc | grep -i version)
+        - Terminal:
+      render: markdown
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error output
+      description: Any traceback or error text. Redact environment names, account IDs and tokens.
+      render: shell
+
+  - type: checkboxes
+    id: no-secrets
+    attributes:
+      label: Confirmation
+      options:
+        - label: I have removed cluster names, AWS account IDs, tokens and other credentials from this report.
+          required: true

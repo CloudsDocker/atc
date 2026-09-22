@@ -1,0 +1,72 @@
+# atc — Airflow Traffic Control
+
+> A terminal control tower (TUI) for Apache Airflow 3 environments that sit behind
+> awkward network paths: inside a private EKS/Kubernetes cluster, or in AWS MWAA with
+> no public webserver. It keeps the connection path — which environment, reached by
+> which mechanism, at what latency — on screen at all times, so you never trigger a DAG
+> against the wrong environment. Python, built on Textual. MIT licensed.
+
+## What problem it solves
+
+- [Airflow behind a private network](README.md#what-you-get): Opening the Airflow web UI
+  for a cluster-internal or VPC-private deployment normally means a manual
+  `kubectl port-forward`, a bastion, or a VPN. atc owns one long-lived port-forward for
+  the whole session and rebuilds it automatically if it dies.
+- [MWAA without a public webserver](src/atc/core/providers/mwaa.py): Two auth strategies
+  with automatic fallback — `mwaa:InvokeRestApi` (AWS proxies to the webserver
+  server-side, no token exchange, 10s timeout, 6MB response cap), falling back to
+  `CreateWebLoginToken` → `POST /pluginsv2/aws_mwaa/login` → session cookie. Credentials
+  come from the normal AWS chain; the config file holds no secrets.
+- [Triggering a DAG against the wrong environment](src/atc/tui/render.py): The
+  always-visible connection bar renders `kind ▸ hops ▸ port  ● latency  vVERSION`, and
+  read-only profiles are marked `⊘` on their tab before you look at them, not after you
+  press the trigger key.
+- [Airflow task failed with no logs (exit code -9, SIGKILL)](src/atc/core/providers/k8s.py):
+  When Airflow returns an empty task log, that usually means the worker was killed before
+  it could write. atc reports the empty log as a finding rather than showing a blank
+  pane, and on Kubernetes falls back to reading the log file directly off the scheduler's
+  log PVC via `kubectl exec`.
+- [Monitoring hundreds of DAGs cheaply](src/atc/tui/app.py): The main screen is a
+  starred watch list, not a full DAG list, so refresh cost is O(favourites) instead of
+  one `dagRuns` call per DAG in the environment.
+- [Switching between dev, staging and prod](src/atc/tui/app.py): One tab per configured
+  environment, each with its own live connection, watch list and cursor. Tabs connect
+  lazily — opening the app never dials every environment you have configured.
+
+## Core modules
+
+- [src/atc/core/provider.py](src/atc/core/provider.py): The eight-method `AirflowProvider`
+  protocol and the shared `RestApiProvider` that speaks the Airflow 3 `/api/v2` REST API.
+- [src/atc/core/providers/k8s.py](src/atc/core/providers/k8s.py): Long-lived
+  `kubectl port-forward` with self-healing, admin password read from a cluster secret,
+  exchanged for a JWT that is renewed 60s before its `exp` claim, plus the PVC log fallback.
+- [src/atc/core/providers/mwaa.py](src/atc/core/providers/mwaa.py): MWAA auth strategy A/B
+  with automatic selection, 12-hour web session caching and Airflow-version guarding.
+- [src/atc/core/providers/fake.py](src/atc/core/providers/fake.py): Deterministic fake
+  environment that drives `atc --fake` and the entire test suite.
+- [src/atc/core/models.py](src/atc/core/models.py): Frozen dataclasses passed between
+  providers and the UI — `ConnectionInfo`, `DagSummary`, `DagRun`, `TaskInstance`, `LogChunk`.
+- [src/atc/tui/render.py](src/atc/tui/render.py): Pure formatting — run-history sparkline
+  strips, state glyphs, duration and relative-time formatting, the connection bar.
+- [src/atc/tui/app.py](src/atc/tui/app.py): Textual screens (watch list, runs, log) and
+  the declarative keymap.
+- [src/atc/wizard.py](src/atc/wizard.py), [src/atc/tui/wizard_app.py](src/atc/tui/wizard_app.py):
+  `atc configure` — discovers kubectl contexts/namespaces, AWS profiles and MWAA
+  environments, and writes `~/.config/atc/config.toml`.
+
+## Scope and limits
+
+- Airflow 3 only (`/api/v2`). An Airflow 2 environment is refused by name rather than
+  failing obscurely.
+- Read-mostly. The single write path is triggering a DAG, behind a confirmation, and it
+  is refused outright on a profile marked `readonly = true`.
+- Not a scheduler, not a deployment tool, not a replacement for the Airflow web UI's
+  graph and Gantt views.
+
+## Optional
+
+- [README.md](README.md): Full documentation, architecture diagram, keymap and configuration.
+- [README_zh.md](README_zh.md): 简体中文 documentation.
+- [CONTRIBUTING.md](CONTRIBUTING.md): Layer boundaries and the FakeProvider testing rule.
+- [config.example.toml](config.example.toml): Annotated profile configuration.
+- [AGENTS.md](AGENTS.md): Repository guide for AI coding agents.

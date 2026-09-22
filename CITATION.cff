@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use atc or reference its design in your work, please cite it as below."
+authors:
+  - family-names: "Zhang"
+    given-names: "Todd"
+    alias: "CloudsDocker"
+title: "atc: Airflow Traffic Control — a terminal control tower for Airflow environments behind private network paths"
+version: 0.1.0
+date-released: 2026-09-22
+url: "https://github.com/CloudsDocker/atc"
+repository-code: "https://github.com/CloudsDocker/atc"
+keywords:
+  - "apache-airflow"
+  - "mwaa"
+  - "kubernetes"
+  - "tui"
+  - "textual"
+  - "dataops"
+  - "observability"
+license: MIT

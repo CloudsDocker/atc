@@ -1,0 +1,43 @@
+name: Feature request
+description: Suggest something atc should do.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        atc is deliberately read-mostly and deliberately small. Requests that keep the
+        blast radius tiny and the connection path obvious have the best chance of landing.
+        Known non-goals are listed in the README under "Roadmap and non-goals".
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do today, and what makes it awkward?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like atc to do
+    validations:
+      required: true
+
+  - type: dropdown
+    id: write-access
+    attributes:
+      label: Does this need a new write path to Airflow?
+      description: Today the only write is triggering a DAG, behind a confirmation.
+      options:
+        - "No — read only"
+        - "Yes — it would write to Airflow"
+        - "Not sure"
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you do instead right now
+      description: The Airflow web UI, kubectl, awscli, another TUI — whatever it is.

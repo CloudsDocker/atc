@@ -2,12 +2,48 @@
 name = "atc"
 version = "0.1.0"
 description = "Airflow Traffic Control - a terminal control tower for Airflow environments behind awkward network paths"
+readme = "README.md"
 requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Todd Zhang" }]
+keywords = [
+    "airflow",
+    "apache-airflow",
+    "mwaa",
+    "kubernetes",
+    "tui",
+    "terminal",
+    "textual",
+    "dataops",
+    "observability",
+    "devops",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: System :: Monitoring",
+    "Topic :: System :: Systems Administration",
+    "Typing :: Typed",
+]
 dependencies = [
     "textual>=0.80",
     "httpx>=0.27",
     "boto3>=1.35",
 ]
+
+[project.urls]
+Homepage = "https://github.com/CloudsDocker/atc"
+Repository = "https://github.com/CloudsDocker/atc"
+Issues = "https://github.com/CloudsDocker/atc/issues"
+Changelog = "https://github.com/CloudsDocker/atc/releases"
 
 [project.scripts]
 atc = "atc.__main__:main"
