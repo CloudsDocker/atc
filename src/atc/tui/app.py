@@ -9,14 +9,14 @@ from __future__ import annotations
 from textual import on, work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.containers import Horizontal, Vertical
-from textual.screen import ModalScreen, Screen
-from textual.widgets import (Button, DataTable, Footer, Input, Label, ListItem,
-                             ListView, Static, TabbedContent, TabPane)
+from textual.containers import Vertical
+from textual.screen import Screen
+from textual.widgets import DataTable, Footer, Static, TabbedContent, TabPane
 
 from .. import favorites
 from ..core.errors import AtcError, ReadOnly
 from ..core.models import DagSummary
+from .modals import Confirm, PickList
 from .render import (STRIP_WIDTH, connection_line, fmt_ago, fmt_duration,
                      run_strip, state_badge)
 
@@ -29,6 +29,16 @@ ProfilePane { height: 1fr; }
 .status,  #status  { height: 1; color: $text-muted; padding: 0 1; }
 DataTable { height: 1fr; }
 DataTable > .datatable--cursor { background: $accent 40%; }
+#runs, #tasks {
+    height: 1fr;
+    border: round $primary;
+    border-title-align: left;
+}
+#runs:focus, #tasks:focus {
+    border: round $success;
+    border-title-color: $success;
+    border-title-style: bold;
+}
 #title { height: 1; padding: 0 1; color: $text-muted; }
 .modal { align: center middle; }
 .modal-box {
@@ -52,75 +62,6 @@ class ConnBar(Static):
 
     def show(self, info, profile_name: str) -> None:
         self.update(connection_line(info, profile_name))
-
-
-class Confirm(ModalScreen[bool]):
-    def __init__(self, question: str, danger: str = "") -> None:
-        super().__init__()
-        self.question = question
-        self.danger = danger
-
-    def compose(self) -> ComposeResult:
-        with Vertical(classes="modal-box"):
-            yield Label(self.question)
-            if self.danger:
-                yield Label(self.danger, classes="danger")
-            with Horizontal():
-                yield Button("Confirm", variant="warning", id="yes")
-                yield Button("Cancel", variant="primary", id="no")
-
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        self.dismiss(event.button.id == "yes")
-
-
-class PickList(ModalScreen[str | None]):
-    """Fuzzy-ish picker used for both 'switch profile' and 'add DAG'."""
-
-    BINDINGS = [Binding("escape", "dismiss_none", "back")]
-
-    def __init__(self, title: str, items: list[str], marked: set[str] | None = None):
-        super().__init__()
-        self.title_text = title
-        self.items = items
-        self.marked = marked or set()
-
-    def compose(self) -> ComposeResult:
-        with Vertical(classes="modal-box"):
-            yield Label(self.title_text, id="title")
-            yield Input(placeholder="type to filter…", id="filter")
-            yield ListView(id="picker")
-
-    def on_mount(self) -> None:
-        self._fill("")
-        self.query_one("#filter", Input).focus()
-
-    def _fill(self, needle: str) -> None:
-        view = self.query_one("#picker", ListView)
-        view.clear()
-        needle = needle.lower()
-        for name in self.items:
-            if needle and needle not in name.lower():
-                continue
-            mark = "★ " if name in self.marked else "  "
-            view.append(ListItem(Label(f"{mark}{name}"), name=name))
-
-    @on(Input.Changed, "#filter")
-    def _refilter(self, event: Input.Changed) -> None:
-        self._fill(event.value)
-
-    @on(Input.Submitted, "#filter")
-    def _submit(self) -> None:
-        view = self.query_one("#picker", ListView)
-        if view.children:
-            view.index = 0
-            self.dismiss(view.children[0].name)
-
-    @on(ListView.Selected)
-    def _picked(self, event: ListView.Selected) -> None:
-        self.dismiss(event.item.name)
-
-    def action_dismiss_none(self) -> None:
-        self.dismiss(None)
 
 
 class ProfilePane(Vertical):
@@ -367,6 +308,8 @@ class DagsScreen(Screen):
 class RunsScreen(Screen):
     BINDINGS = [
         Binding("escape", "app.pop_screen", "back"),
+        Binding("1", "focus_pane(1)", "runs", priority=True),
+        Binding("2", "focus_pane(2)", "tasks", priority=True),
         Binding("enter", "drill", "log", priority=True),
         Binding("r", "reload", "refresh"),
     ]
@@ -385,8 +328,12 @@ class RunsScreen(Screen):
     def compose(self) -> ComposeResult:
         yield ConnBar(id="connbar")
         yield Static(f" {self.dag_id}", id="title", markup=False)
-        yield DataTable(id="runs", cursor_type="row")
-        yield DataTable(id="tasks", cursor_type="row")
+        runs = DataTable(id="runs", cursor_type="row")
+        runs.border_title = "[1] Runs"
+        yield runs
+        tasks = DataTable(id="tasks", cursor_type="row")
+        tasks.border_title = "[2] Tasks"
+        yield tasks
         yield Static("", id="status", markup=False)
         yield Footer()
 
@@ -397,6 +344,12 @@ class RunsScreen(Screen):
         tasks.add_columns("TASK", "STATE", "TRY", "TOOK")
         self.query_one(ConnBar).show(self.provider.describe(), self.profile_name)
         self.action_reload()
+
+    def action_focus_pane(self, pane: int) -> None:
+        if pane == 1:
+            self.query_one("#runs", DataTable).focus()
+        elif pane == 2:
+            self.query_one("#tasks", DataTable).focus()
 
     def action_reload(self) -> None:
         self._load_runs()
@@ -444,7 +397,7 @@ class RunsScreen(Screen):
         for t in tis:
             table.add_row(t.task_id, state_badge(t.state), str(t.try_number),
                           fmt_duration(t.duration_s), key=f"{t.task_id}|{t.try_number}")
-        self._status(f"{len(tis)} tasks — enter on a task to read its log")
+        self._status(f"{len(tis)} tasks — [2] to focus tasks, enter for log")
 
     def _status(self, msg: str) -> None:
         self.status_text = msg
@@ -452,7 +405,10 @@ class RunsScreen(Screen):
 
     def action_drill(self) -> None:
         table = self.query_one("#tasks", DataTable)
-        if not self.run_id or table.row_count == 0 or not table.has_focus:
+        if not self.run_id or table.row_count == 0:
+            return
+        if not table.has_focus:
+            table.focus()
             return
         key = str(table.coordinate_to_cell_key(table.cursor_coordinate).row_key.value)
         task_id, try_number = key.rsplit("|", 1)
