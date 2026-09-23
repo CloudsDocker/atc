@@ -8,7 +8,8 @@ import pytest
 from textual.widgets import DataTable
 
 from atc.core.providers.fake import FakeProvider
-from atc.tui.app import AtcApp, DagsScreen, PickList, ProfilePane, RunsScreen
+from atc.tui.app import (AtcApp, DagsScreen, LogScreen, PickList, ProfilePane,
+                         RunsScreen)
 
 pytestmark = pytest.mark.asyncio
 
@@ -115,3 +116,75 @@ async def test_readonly_profile_refuses_to_trigger(cfgdir):
         await pilot.press("t")
         await pilot.pause()
         assert "readonly" in app.screen.pane.status_text
+
+
+async def test_add_screen_arrow_keys_navigate_shortlist(cfgdir):
+    app = AtcApp(FakeProvider(), "fake")
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await pilot.press("a")
+        await pilot.pause()
+        await pilot.pause()
+        assert isinstance(app.screen, PickList)
+        await pilot.press("r")
+        await pilot.press("e")
+        await pilot.pause()
+        lv = app.screen.query_one("#picker")
+        assert len(lv.children) == 4
+        assert lv.index == 0
+        assert lv.highlighted_child.name == "ingest_orders_to_warehouse"
+
+        # arrow down and up
+        await pilot.press("down")
+        await pilot.pause()
+        assert lv.index == 1
+        assert lv.highlighted_child.name == "rebuild_search_index"
+
+        await pilot.press("down")
+        await pilot.pause()
+        assert lv.index == 2
+        assert lv.highlighted_child.name == "reconcile_payments"
+
+        await pilot.press("up")
+        await pilot.pause()
+        assert lv.index == 1
+        assert lv.highlighted_child.name == "rebuild_search_index"
+
+        await pilot.press("enter")
+        await pilot.pause()
+        await pilot.pause()
+        assert isinstance(app.screen, DagsScreen)
+        assert "rebuild_search_index" in app.favorites_for("fake")
+
+
+async def test_runs_screen_lazygit_panes_and_number_focus(cfgdir):
+    app = AtcApp(FakeProvider(), "fake")
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        rs = RunsScreen("vendor_feed_import", "fake")
+        app.push_screen(rs)
+        await pilot.pause()
+        await pilot.pause()
+        runs = rs.query_one("#runs")
+        tasks = rs.query_one("#tasks")
+        assert runs.border_title == "[1] Runs"
+        assert tasks.border_title == "[2] Tasks"
+        assert runs.has_focus
+
+        await pilot.press("2")
+        await pilot.pause()
+        assert tasks.has_focus
+
+        await pilot.press("1")
+        await pilot.pause()
+        assert runs.has_focus
+
+        await pilot.press("enter")
+        await pilot.pause()
+        assert tasks.has_focus
+
+        await pilot.press("enter")
+        await pilot.pause()
+        await pilot.pause()
+        assert isinstance(app.screen, LogScreen)
+
