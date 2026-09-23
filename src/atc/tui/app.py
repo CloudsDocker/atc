@@ -21,22 +21,31 @@ from .render import (STRIP_WIDTH, connection_line, fmt_ago, fmt_duration,
                      run_strip, state_badge)
 
 CSS = """
-Screen { background: $surface; }
+Screen { background: #0d1117; } /* GH Dark background */
 TabbedContent { height: 1fr; }
 ProfilePane { height: 1fr; }
 /* one pane per profile means these cannot be ids - each pane has its own */
-.connbar, #connbar { height: 1; background: $panel; color: $text; }
-.status,  #status  { height: 1; color: $text-muted; padding: 0 1; }
-DataTable { height: 1fr; }
-DataTable > .datatable--cursor { background: $accent 40%; }
-#title { height: 1; padding: 0 1; color: $text-muted; }
-.modal { align: center middle; }
+.connbar, #connbar { height: 1; background: #000000; color: #c9d1d9; }
+.conn-left { width: 1fr; }
+.conn-right { width: auto; background: #005cc5; color: white; text-style: bold; padding: 0 1; }
+.status,  #status  { height: 1; background: #000000; color: #8b949e; padding: 0 1; dock: bottom; }
+DataTable { height: 1fr; background: #0d1117; color: #c9d1d9; }
+DataTable > .datatable--cursor { background: #238636; color: white; }
+#title { height: 1; padding: 0 1; color: #8b949e; }
+.modal { align: center middle; background: rgba(0,0,0,0.7); }
 .modal-box {
     width: 70; height: auto; max-height: 80%;
-    border: round $accent; background: $panel; padding: 1 2;
+    border: solid #30363d; background: #161b22; padding: 1 2; color: #c9d1d9;
 }
-#logview { height: 1fr; padding: 0 1; }
-#empty-hint { padding: 1 2; color: $warning; }
+.help-modal {
+    width: 90; height: auto; max-height: 90%;
+    border: solid #30363d; background: #161b22; padding: 1 2; color: #c9d1d9;
+}
+.help-title { text-style: bold; color: #58a6ff; margin-bottom: 1; }
+.help-grid { layout: grid; grid-size: 2; grid-gutter: 0 2; }
+.help-col { height: auto; }
+#logview { height: 1fr; padding: 0 1; background: #0d1117; color: #c9d1d9; }
+#empty-hint { padding: 1 2; color: #d73a49; }
 """
 
 
@@ -46,12 +55,16 @@ def _pane_id(profile_name: str) -> str:
     return f"pane_{safe}"
 
 
-class ConnBar(Static):
+class ConnBar(Horizontal):
     """Always on top. Which environment, reached how, how fast - a safety rail as
     much as a status line."""
 
+    def compose(self) -> ComposeResult:
+        yield Static("", id="conn-left", classes="conn-left")
+        yield Static(" ATC ", id="conn-right", classes="conn-right")
+
     def show(self, info, profile_name: str) -> None:
-        self.update(connection_line(info, profile_name))
+        self.query_one("#conn-left", Static).update(connection_line(info, profile_name))
 
 
 class Confirm(ModalScreen[bool]):
@@ -76,7 +89,17 @@ class Confirm(ModalScreen[bool]):
 class PickList(ModalScreen[str | None]):
     """Fuzzy-ish picker used for both 'switch profile' and 'add DAG'."""
 
-    BINDINGS = [Binding("escape", "dismiss_none", "back")]
+    BINDINGS = [
+        Binding("escape", "dismiss_none", "back"),
+        Binding("down", "cursor_down", "down", show=False),
+        Binding("up", "cursor_up", "up", show=False),
+    ]
+
+    def action_cursor_down(self) -> None:
+        self.query_one("#picker", ListView).action_cursor_down()
+
+    def action_cursor_up(self) -> None:
+        self.query_one("#picker", ListView).action_cursor_up()
 
     def __init__(self, title: str, items: list[str], marked: set[str] | None = None):
         super().__init__()
@@ -112,8 +135,9 @@ class PickList(ModalScreen[str | None]):
     def _submit(self) -> None:
         view = self.query_one("#picker", ListView)
         if view.children:
-            view.index = 0
-            self.dismiss(view.children[0].name)
+            index = view.index if view.index is not None else 0
+            if index < len(view.children):
+                self.dismiss(view.children[index].name)
 
     @on(ListView.Selected)
     def _picked(self, event: ListView.Selected) -> None:
@@ -121,6 +145,37 @@ class PickList(ModalScreen[str | None]):
 
     def action_dismiss_none(self) -> None:
         self.dismiss(None)
+
+
+class HelpModal(ModalScreen[None]):
+    """Shows all key bindings."""
+
+    BINDINGS = [
+        Binding("escape", "dismiss", "close help"),
+        Binding("q", "dismiss", "close help"),
+        Binding("question_mark", "dismiss", "close help"),
+    ]
+
+    def compose(self) -> ComposeResult:
+        with Vertical(classes="help-modal"):
+            yield Label("Keyboard Shortcuts", classes="help-title")
+            with Horizontal(classes="help-grid"):
+                with Vertical(classes="help-col"):
+                    yield Label("[b]Navigation[/b]")
+                    yield Label("  tab    next profile")
+                    yield Label("  S-tab  prev profile")
+                    yield Label("  ↑/k    move up")
+                    yield Label("  ↓/j    move down")
+                    yield Label("  enter  drill in")
+                    yield Label("  esc    go back")
+                with Vertical(classes="help-col"):
+                    yield Label("[b]Actions[/b]")
+                    yield Label("  a      add DAG")
+                    yield Label("  f      unstar")
+                    yield Label("  t      trigger")
+                    yield Label("  r      refresh")
+                    yield Label("  ?      help")
+                    yield Label("  q      quit")
 
 
 class ProfilePane(Vertical):
@@ -208,6 +263,7 @@ class ProfilePane(Vertical):
         if not summaries:
             self._set_status("no DAGs watched yet — press [a] to add one")
         else:
+            table.focus()
             failing = [s.dag_id for s in summaries if s.last_state == "failed"]
             self._set_status(
                 f"★ watching {len(summaries)}"
@@ -241,6 +297,7 @@ class DagsScreen(Screen):
         Binding("enter", "drill", "runs", priority=True),
         Binding("t", "trigger", "trigger"),
         Binding("r", "refresh", "refresh"),
+        Binding("question_mark", "help", "help"),
         Binding("q", "quit", "quit"),
     ] + [
         # digits jump straight to the nth profile; out-of-range ones simply no-op
@@ -369,6 +426,7 @@ class RunsScreen(Screen):
         Binding("escape", "app.pop_screen", "back"),
         Binding("enter", "drill", "log", priority=True),
         Binding("r", "reload", "refresh"),
+        Binding("question_mark", "help", "help"),
     ]
 
     def __init__(self, dag_id: str, profile_name: str) -> None:
@@ -462,7 +520,10 @@ class RunsScreen(Screen):
 
 
 class LogScreen(Screen):
-    BINDINGS = [Binding("escape", "app.pop_screen", "back")]
+    BINDINGS = [
+        Binding("escape", "app.pop_screen", "back"),
+        Binding("question_mark", "help", "help")
+    ]
 
     def __init__(self, dag_id, run_id, task_id, try_number, profile_name) -> None:
         super().__init__()
@@ -508,6 +569,11 @@ class LogScreen(Screen):
 class AtcApp(App):
     CSS = CSS
     TITLE = "atc"
+
+    BINDINGS = [Binding("question_mark", "help", "help", show=False)]
+
+    def action_help(self) -> None:
+        self.push_screen(HelpModal())
 
     def __init__(self, provider, profile_name: str, config=None) -> None:
         super().__init__()
