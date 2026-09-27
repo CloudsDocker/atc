@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://cloudsdocker.github.io/atc/sitemap.xml

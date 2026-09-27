@@ -1,5 +1,5 @@
 [project]
-name = "atc"
+name = "airflow-atc"
 version = "0.1.0"
 description = "Airflow Traffic Control - a terminal control tower for Airflow environments behind awkward network paths"
 readme = "README.md"
@@ -18,6 +18,10 @@ keywords = [
     "dataops",
     "observability",
     "devops",
+    "airflow-monitoring",
+    "eks",
+    "sre",
+    "cli",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -40,7 +44,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/CloudsDocker/atc"
+Homepage = "https://cloudsdocker.github.io/atc/"
+Documentation = "https://cloudsdocker.github.io/atc/"
+Source = "https://github.com/CloudsDocker/atc"
 Repository = "https://github.com/CloudsDocker/atc"
 Issues = "https://github.com/CloudsDocker/atc/issues"
 Changelog = "https://github.com/CloudsDocker/atc/releases"

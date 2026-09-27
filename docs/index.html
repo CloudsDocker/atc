@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>atc — a terminal UI for Apache Airflow 3 behind a private network</title>
+<meta name="description" content="atc (Airflow Traffic Control) is an open-source terminal UI for operating Apache Airflow 3 environments you cannot reach from a browser — inside a private EKS/Kubernetes cluster, or on AWS MWAA with no public webserver. MIT licensed, Python, built on Textual.">
+<link rel="canonical" href="https://cloudsdocker.github.io/atc/">
+<meta name="author" content="Todd Zhang">
+<meta name="keywords" content="airflow tui, apache airflow terminal ui, mwaa cli, airflow without web ui, private eks airflow, airflow port-forward, mwaa no public webserver, airflow monitoring terminal, textual tui, dataops">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="atc — Airflow Traffic Control">
+<meta property="og:title" content="atc — a terminal control tower for Apache Airflow 3">
+<meta property="og:description" content="Operate Airflow 3 environments that live behind awkward network paths: a private Kubernetes cluster, or MWAA with no public webserver. One self-healing tunnel, one tab per environment, and the connection path always on screen.">
+<meta property="og:url" content="https://cloudsdocker.github.io/atc/">
+<meta property="og:image" content="https://cloudsdocker.github.io/atc/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="atc — a terminal control tower for Apache Airflow 3">
+<meta name="twitter:description" content="Airflow 3 from the terminal, for environments a browser cannot reach — private EKS, or MWAA with no public webserver.">
+<meta name="twitter:image" content="https://cloudsdocker.github.io/atc/og.png">
+
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛰️</text></svg>">
+<link rel="alternate" type="text/plain" href="https://raw.githubusercontent.com/CloudsDocker/atc/master/llms.txt" title="llms.txt">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "SoftwareApplication",
+      "name": "atc — Airflow Traffic Control",
+      "alternateName": "airflow-atc",
+      "applicationCategory": "DeveloperApplication",
+      "applicationSubCategory": "Terminal user interface for Apache Airflow",
+      "operatingSystem": "Linux, macOS, Windows",
+      "url": "https://cloudsdocker.github.io/atc/",
+      "downloadUrl": "https://pypi.org/project/airflow-atc/",
+      "codeRepository": "https://github.com/CloudsDocker/atc",
+      "programmingLanguage": "Python",
+      "license": "https://opensource.org/licenses/MIT",
+      "softwareVersion": "0.1.0",
+      "description": "A terminal control tower for Apache Airflow 3 environments that are not reachable from a browser — inside a private Kubernetes cluster, or on AWS MWAA with no public webserver.",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "author": { "@type": "Person", "name": "Todd Zhang", "url": "https://github.com/CloudsDocker" }
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "How do I use Apache Airflow when the web UI is not reachable from my browser?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Run atc. It owns one long-lived kubectl port-forward for the whole session against a private Kubernetes cluster, or authenticates to AWS MWAA through mwaa:InvokeRestApi with a CreateWebLoginToken fallback, and renders DAGs, run history and task logs in your terminal." }
+        },
+        {
+          "@type": "Question",
+          "name": "Does atc work with AWS MWAA that has no public webserver?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. atc talks to MWAA over the AWS API rather than the webserver. It tries mwaa:InvokeRestApi first and falls back to CreateWebLoginToken plus /pluginsv2/aws_mwaa/login when permissions or capabilities are missing. Strategy selection is automatic and can be pinned per profile." }
+        },
+        {
+          "@type": "Question",
+          "name": "Does atc support Airflow 2?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. atc is Airflow 3 only and speaks /api/v2. An Airflow 2 environment is refused by name rather than failing obscurely." }
+        },
+        {
+          "@type": "Question",
+          "name": "Can atc change my Airflow environment?",
+          "acceptedAnswer": { "@type": "Answer", "text": "There is exactly one write path: triggering a DAG. It sits behind a confirmation modal and is refused outright on any profile marked readonly = true, which also shows a ⊘ marker on its tab before you touch it." }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I try atc without AWS credentials or a cluster?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. Run atc --fake for a deterministic fake environment with no config, no credentials and no network. It is the same fake provider the entire test suite runs on." }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I install atc?",
+          "acceptedAnswer": { "@type": "Answer", "text": "uvx airflow-atc --fake to run it without installing, uv tool install airflow-atc to put it on your PATH, or pip install airflow-atc. Python 3.11 or newer is required. The command is atc." }
+        }
+      ]
+    }
+  ]
+}
+</script>
+
+<style>
+:root{
+  --bg:#ffffff; --fg:#1b1f24; --muted:#5b6672; --line:#e3e8ee;
+  --card:#f7f9fc; --accent:#017CEE; --accent-2:#5E5EFF;
+  --term-bg:#0d1117; --term-fg:#c9d1d9;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0d1117; --fg:#e6edf3; --muted:#9198a1; --line:#232a33;
+    --card:#161b22; --accent:#58a6ff; --accent-2:#8b8bff;
+    --term-bg:#010409; --term-fg:#c9d1d9;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0d1117; --fg:#e6edf3; --muted:#9198a1; --line:#232a33;
+  --card:#161b22; --accent:#58a6ff; --accent-2:#8b8bff;
+  --term-bg:#010409; --term-fg:#c9d1d9;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);
+     line-height:1.65;-webkit-font-smoothing:antialiased}
+.wrap{max-width:880px;margin:0 auto;padding:0 16px}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+code{font-family:var(--mono);font-size:.9em;background:var(--card);
+     border:1px solid var(--line);border-radius:5px;padding:.12em .38em}
+pre{font-family:var(--mono);background:var(--term-bg);color:var(--term-fg);
+    border:1px solid var(--line);border-radius:10px;padding:16px;overflow-x:auto;
+    font-size:13px;line-height:1.55}
+pre code{background:none;border:0;padding:0;color:inherit;font-size:inherit}
+h1,h2,h3{line-height:1.25;letter-spacing:-.01em}
+h2{margin-top:3rem;padding-top:1.6rem;border-top:1px solid var(--line);font-size:1.5rem}
+h3{margin-top:2rem;font-size:1.08rem}
+hr{border:0;border-top:1px solid var(--line);margin:3rem 0}
+
+header{text-align:center;padding:64px 0 8px}
+.logo{font-family:var(--mono);font-size:clamp(2.6rem,10vw,4rem);font-weight:700;
+      letter-spacing:-.04em;margin:0;
+      background:linear-gradient(95deg,var(--accent),var(--accent-2));
+      -webkit-background-clip:text;background-clip:text;color:transparent}
+.tagline{font-size:clamp(1rem,3.4vw,1.2rem);color:var(--muted);max-width:44ch;
+         margin:.5rem auto 1.4rem}
+.badges{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:1.6rem}
+.badges img{height:20px}
+.cta{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+.btn{display:inline-block;padding:9px 18px;border-radius:8px;font-weight:600;font-size:.94rem;
+     border:1px solid var(--line);background:var(--card);color:var(--fg)}
+.btn:hover{text-decoration:none;border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+
+.grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));margin-top:1.2rem}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px}
+.card h3{margin:0 0 .4rem;font-size:1rem}
+.card p{margin:0;font-size:.92rem;color:var(--muted)}
+
+details{border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin:10px 0;
+        background:var(--card)}
+summary{cursor:pointer;font-weight:600}
+details[open] summary{margin-bottom:.6rem}
+
+table{width:100%;border-collapse:collapse;font-size:.92rem;margin-top:1rem;display:block;overflow-x:auto}
+th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+th{background:var(--card)}
+
+footer{border-top:1px solid var(--line);margin-top:4rem;padding:2rem 0 3rem;
+       color:var(--muted);font-size:.9rem;text-align:center}
+</style>
+</head>
+<body>
+
+<header class="wrap">
+  <h1 class="logo">atc</h1>
+  <p class="tagline"><strong>Airflow Traffic Control</strong> — a terminal control tower for
+  Apache&nbsp;Airflow&nbsp;3 environments that live behind awkward network paths.</p>
+
+  <p class="badges">
+    <a href="https://pypi.org/project/airflow-atc/"><img src="https://img.shields.io/pypi/v/airflow-atc.svg?color=017CEE" alt="PyPI version"></a>
+    <a href="https://github.com/CloudsDocker/atc/actions/workflows/ci.yml"><img src="https://github.com/CloudsDocker/atc/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
+    <a href="https://github.com/CloudsDocker/atc/blob/master/LICENSE"><img src="https://img.shields.io/github/license/CloudsDocker/atc?color=green" alt="MIT license"></a>
+    <a href="https://github.com/CloudsDocker/atc/stargazers"><img src="https://img.shields.io/github/stars/CloudsDocker/atc?style=flat&color=8A2BE2" alt="GitHub stars"></a>
+  </p>
+
+  <p class="cta">
+    <a class="btn primary" href="#quickstart">Try it in 60 seconds</a>
+    <a class="btn" href="https://github.com/CloudsDocker/atc">GitHub</a>
+    <a class="btn" href="https://github.com/CloudsDocker/atc/blob/master/README_zh.md">简体中文</a>
+  </p>
+</header>
+
+<main class="wrap">
+
+<pre aria-label="Screenshot of the atc terminal interface"><code>  dev-k8s │ staging │ prod ⊘ │ mwaa-sit                        atc · airflow 3
+ ────────────────────────────────────────────────────────────────────────────
+  ◉ dev-k8s    k8s ▸ demo-cluster ▸ airflow-demo ▸ :54312    ● 78ms    v3.1.0
+  ★ watching 5     ✗ failing: vendor_feed_import
+ ────────────────────────────────────────────────────────────────────────────
+  DAG                          SCHED        LAST 20 RUNS         LAST       Ø
+  ingest_orders_to_warehouse   @hourly      ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇ ✓ 12m ago  8m42s
+  sync_customers_to_crm        0 2 * * *    ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▒ ◐ running  9m15s
+  vendor_feed_import           @hourly      ▇▇▇▇▇▇▇▇▇▇▇▇▚▇▇▇▇▇▇▚ ✗ 9m ago   7m36s
+  rebuild_search_index         @daily       ▇▇▇▇·▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇ ✓ 4h ago   22m04s
+  export_finance_extract       0 6 * * 1-5  ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇ ✓ 31m ago  1m08s
+ ────────────────────────────────────────────────────────────────────────────
+  tab next env   1-9 jump   a add   f unstar   ⏎ runs   t trigger   q quit</code></pre>
+
+<h2 id="problem">The problem</h2>
+
+<p>Production Airflow rarely sits on a public URL. It runs inside a private EKS cluster,
+or on AWS MWAA with the webserver access mode set to private. Checking whether last
+night's DAG failed then means a manual <code>kubectl port-forward</code>, a bastion host,
+a VPN, or an AWS console round-trip — every single time.</p>
+
+<p><strong>atc</strong> collapses that into one terminal session. It owns the tunnel, mints
+and renews the token, and keeps the connection path — <em>which environment, reached by
+which mechanism, at what latency</em> — on screen at all times, so you never trigger a DAG
+against the wrong environment.</p>
+
+<h2 id="quickstart">Quickstart</h2>
+
+<p>No AWS account, no cluster, no config file, no network:</p>
+
+<pre><code>uvx airflow-atc --fake</code></pre>
+
+<p>That launches the full TUI against a deterministic fake environment. Tabs, the watch
+list, run history, the empty-log finding and the trigger confirmation all behave exactly
+as they do against a real Airflow. It is also what the entire test suite runs on.</p>
+
+<h3>Install it properly</h3>
+
+<pre><code># as a tool on your PATH
+uv tool install airflow-atc
+
+# or with pip
+pip install airflow-atc
+
+atc configure     # discovery wizard
+atc               # go</code></pre>
+
+<p><strong>Requirements:</strong> Python 3.11+. For <code>k8s</code> profiles you need
+<code>kubectl</code> on your PATH and a working context. For <code>mwaa</code> profiles you
+need AWS credentials resolvable through the normal chain (profile, environment, SSO,
+instance role).</p>
+
+<h2 id="features">What you get</h2>
+
+<div class="grid">
+  <div class="card"><h3>🛰️ The connection path, always on screen</h3>
+    <p><code>k8s ▸ cluster ▸ namespace ▸ :port ● 78ms v3.1.0</code> sits above everything.
+    You can never be unsure which environment you are pointed at.</p></div>
+  <div class="card"><h3>🔌 A tunnel that heals itself</h3>
+    <p>One <code>kubectl port-forward</code> for the whole session. If it dies, atc notices,
+    rebuilds it, and drops the token bound to the dead socket.</p></div>
+  <div class="card"><h3>🔑 MWAA auth that falls back</h3>
+    <p>Tries <code>mwaa:InvokeRestApi</code>; on a permissions gap falls back to
+    <code>CreateWebLoginToken</code>. Automatic, and pinnable per profile.</p></div>
+  <div class="card"><h3>🗂️ Tabs, not reconnects</h3>
+    <p>One tab per environment with its own connection, watch list and cursor. Tabs connect
+    lazily — starting atc never dials everything you configured.</p></div>
+  <div class="card"><h3>⭐ O(favourites), not O(DAGs)</h3>
+    <p>The main screen is a starred watch list. A real environment has hundreds of DAGs;
+    rendering all of them costs one call each and tells you nothing.</p></div>
+  <div class="card"><h3>🕵️ An empty log is a finding</h3>
+    <p>When Airflow returns nothing for a failed task, atc says so — and on Kubernetes reads
+    the log off the scheduler's PVC instead of showing a blank pane.</p></div>
+  <div class="card"><h3>🛑 Read-only, marked before you touch it</h3>
+    <p><code>readonly = true</code> puts <code>⊘</code> on the tab and refuses the trigger key
+    outright. The one write path sits behind a confirmation modal.</p></div>
+  <div class="card"><h3>🧪 Tests that need no credentials</h3>
+    <p>Everything the UI consumes goes through an 8-method provider protocol, so the whole
+    suite — headless UI tests included — runs with no AWS, cluster or network.</p></div>
+</div>
+
+<h2 id="configure">Configure</h2>
+
+<p>Run <code>atc configure</code>. It discovers your kubectl contexts and namespaces, your
+AWS profiles and your MWAA environments, and writes
+<code>~/.config/atc/config.toml</code>. Running <code>atc</code> with no configuration at all
+launches the same wizard, so there is no "file not found" dead end.</p>
+
+<details>
+<summary>Or write the config by hand</summary>
+<pre><code>default = "dev-k8s"
+
+[profiles.dev-k8s]
+type      = "k8s"
+context   = "YOUR-KUBE-CONTEXT"
+namespace = "YOUR-AIRFLOW-NAMESPACE"
+service   = "airflow-api-server-cluster-ip-service"
+port      = 8080
+secret    = "airflow-secret"
+
+[profiles.mwaa-prd]
+type        = "mwaa"
+environment = "YOUR-MWAA-ENV-NAME"
+region      = "ap-southeast-2"
+aws_profile = "YOUR-AWS-PROFILE"
+strategy    = "auto"        # auto | invoke_rest_api | web_login_token
+readonly    = true          # ⊘ on the tab; `t` is refused outright</code></pre>
+<p>No secrets go in this file. Kubernetes admin passwords are read from a cluster secret at
+runtime; AWS credentials come from the standard chain.</p>
+</details>
+
+<h2 id="architecture">How it is built</h2>
+
+<p>Everything the UI consumes goes through one 8-method <code>AirflowProvider</code>
+protocol. That single seam is why <code>--fake</code> exists, why the headless UI tests need
+no credentials, and why supporting a new Airflow deployment shape means writing one file
+rather than touching the TUI.</p>
+
+<pre><code>tui/app.py  ·  tui/render.py        Textual screens + a pure renderer
+      │
+      ▼  AirflowProvider (8 methods)
+core/provider.py                    RestApiProvider · Airflow 3 · /api/v2
+      │
+      ├── providers/k8s.py          self-healing port-forward, JWT, PVC log fallback
+      ├── providers/mwaa.py         InvokeRestApi → CreateWebLoginToken fallback
+      └── providers/fake.py         --fake, and the whole test suite</code></pre>
+
+<p>The dependency direction is strictly one-way: <code>tui → core → providers</code>.
+<code>core/models.py</code> imports nothing from the project, and <code>tui/render.py</code>
+imports only <code>rich</code> and the models — which is what makes the formatting layer
+unit-testable on its own.</p>
+
+<h2 id="faq">FAQ</h2>
+
+<h3>Does atc support Airflow 2?</h3>
+<p>No. atc is Airflow 3 only and speaks <code>/api/v2</code>. An Airflow 2 environment is
+refused by name rather than failing obscurely. There are no Airflow 2 fallbacks by design.</p>
+
+<h3>Can atc break my production environment?</h3>
+<p>There is exactly one call that mutates a remote Airflow: <code>trigger()</code>. It is
+gated by a confirmation modal and refused outright on profiles marked
+<code>readonly = true</code>. Everything else is read-only.</p>
+
+<h3>Does it replace the Airflow web UI?</h3>
+<p>No, and it does not try to. There is no graph view, no Gantt chart, no DAG authoring.
+atc is for the operating loop: what is failing, what did the log say, run it again.</p>
+
+<h3>Where do my credentials go?</h3>
+<p>Nowhere. Kubernetes admin passwords are read from a cluster secret at runtime, AWS
+credentials come from the standard chain, and MWAA web sessions are cached in memory for
+12 hours. <code>config.toml</code> holds no secrets.</p>
+
+<h3>Is it safe to run against production?</h3>
+<p>Mark the profile <code>readonly = true</code>. The tab then carries a <code>⊘</code>
+marker <em>before</em> you are looking at it, and the trigger key is refused rather than
+confirmed.</p>
+
+<h2 id="links">More</h2>
+
+<table>
+<tr><th>Resource</th><th>What is there</th></tr>
+<tr><td><a href="https://github.com/CloudsDocker/atc">GitHub repository</a></td><td>Source, issues, releases</td></tr>
+<tr><td><a href="https://pypi.org/project/airflow-atc/">PyPI · airflow-atc</a></td><td>Released wheels and sdists</td></tr>
+<tr><td><a href="https://github.com/CloudsDocker/atc/blob/master/README_zh.md">README 简体中文</a></td><td>Full Chinese documentation</td></tr>
+<tr><td><a href="https://raw.githubusercontent.com/CloudsDocker/atc/master/llms.txt">llms.txt</a></td><td>Structured summary for LLMs and AI agents</td></tr>
+<tr><td><a href="https://github.com/CloudsDocker/atc/blob/master/CONTRIBUTING.md">CONTRIBUTING.md</a></td><td>Layer boundaries and the FakeProvider testing rule</td></tr>
+<tr><td><a href="https://github.com/CloudsDocker/atc/blob/master/CHANGELOG.md">CHANGELOG.md</a></td><td>What changed, per release</td></tr>
+</table>
+
+</main>
+
+<footer class="wrap">
+  <p>MIT licensed · built by <a href="https://github.com/CloudsDocker">Todd Zhang</a> ·
+  <a href="https://github.com/sponsors/CloudsDocker">sponsor this project</a></p>
+  <p>If atc saved you a <code>port-forward</code> today,
+  <a href="https://github.com/CloudsDocker/atc">a star</a> is how it finds the next person.</p>
+</footer>
+
+</body>
+</html>

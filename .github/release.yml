@@ -1,0 +1,15 @@
+# Categories for the auto-generated release notes.
+changelog:
+  exclude:
+    labels: [ignore-for-release]
+  categories:
+    - title: Features
+      labels: [enhancement, feature]
+    - title: Fixes
+      labels: [bug, fix]
+    - title: Providers (k8s / MWAA)
+      labels: [provider, kubernetes, mwaa]
+    - title: Docs
+      labels: [documentation]
+    - title: Other changes
+      labels: ["*"]

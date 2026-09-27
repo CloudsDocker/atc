@@ -8,12 +8,15 @@
 <a href="README.md"><b>English</b></a> · <a href="README_zh.md"><b>简体中文</b></a>
 
 <p>
+  <a href="https://pypi.org/project/airflow-atc/"><img src="https://img.shields.io/pypi/v/airflow-atc.svg?color=017CEE&label=pypi%20%7C%20airflow-atc" alt="PyPI"></a>
+  <a href="https://pypi.org/project/airflow-atc/"><img src="https://img.shields.io/pypi/dm/airflow-atc?color=017CEE" alt="Downloads"></a>
   <a href="https://github.com/CloudsDocker/atc/actions/workflows/ci.yml"><img src="https://github.com/CloudsDocker/atc/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://github.com/CloudsDocker/atc/blob/master/LICENSE"><img src="https://img.shields.io/github/license/CloudsDocker/atc?color=green" alt="License"></a>
   <img src="https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-3776AB?logo=python&logoColor=white" alt="Python">
   <a href="https://airflow.apache.org/"><img src="https://img.shields.io/badge/Airflow-3.x%20%C2%B7%20%2Fapi%2Fv2-017CEE?logo=apacheairflow&logoColor=white" alt="Airflow 3"></a>
   <a href="https://textual.textualize.io/"><img src="https://img.shields.io/badge/built%20with-Textual-5E5EFF" alt="Built with Textual"></a>
   <a href="llms.txt"><img src="https://img.shields.io/badge/llms.txt-supported-8A2BE2" alt="llms.txt"></a>
+  <a href="https://cloudsdocker.github.io/atc/"><img src="https://img.shields.io/badge/docs-cloudsdocker.github.io%2Fatc-1f6feb" alt="Docs"></a>
 </p>
 
 </div>
@@ -47,7 +50,7 @@
 不需要 AWS 账号、不需要集群、不需要配置文件、不需要连内网：
 
 ```bash
-uvx --from git+https://github.com/CloudsDocker/atc atc --fake
+uvx airflow-atc --fake
 ```
 
 这会用一份确定性的假数据把完整界面拉起来。下面讲到的每一个能力 —— 多环境标签页、关注列表、
@@ -131,10 +134,10 @@ flowchart LR
 
 ```bash
 # 不做任何永久安装，直接跑
-uvx --from git+https://github.com/CloudsDocker/atc atc --fake
+uvx airflow-atc --fake
 
 # 或者装成 PATH 上的一个工具
-uv tool install git+https://github.com/CloudsDocker/atc
+uv tool install airflow-atc
 atc --fake
 ```
 
