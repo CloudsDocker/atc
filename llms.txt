@@ -8,7 +8,7 @@
 
 ## Canonical links
 
-- Documentation site: https://cloudsdocker.github.io/atc/
+- Documentation site: https://www.todzhang.com/atc/
 - Source: https://github.com/CloudsDocker/atc
 - Package: https://pypi.org/project/airflow-atc/ (`pip install airflow-atc`, command `atc`)
 - Try with no credentials: `uvx airflow-atc --fake`
