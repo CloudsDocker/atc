@@ -52,7 +52,12 @@ def main(argv: list[str] | None = None) -> int:
         print(f"atc: {e}", file=sys.stderr)
         return 1
 
-    AtcApp(provider, profile.name, config=conf).run()
+    AtcApp(
+        provider,
+        profile.name,
+        config=conf,
+        config_path=Path(args.config) if args.config else None,
+    ).run()
     return 0
 
 

@@ -252,7 +252,8 @@ atc --fake                   # the demo environment
 |---|---|---|---|---|---|
 | `tab` / `shift+tab` | next / previous environment | `⏎` | open the task log | `esc` | back |
 | `1` – `9` | jump straight to an environment | `r` | refresh | | |
-| `a` | browse all DAGs and star one | `esc` | back | | |
+| `p` | manage profiles (add, clone sibling, edit, delete, switch) | `esc` | back | | |
+| `a` | browse all DAGs and star one | | | | |
 | `f` | unstar the selected DAG | | | | |
 | `⏎` | open run history | | | | |
 | `t` | trigger (confirmation; refused when read-only) | | | | |

@@ -16,7 +16,7 @@ from textual.widgets import DataTable, Footer, Label, Static, TabbedContent, Tab
 from .. import favorites
 from ..core.errors import AtcError, ReadOnly
 from ..core.models import DagSummary
-from .modals import Confirm, PickList
+from .modals import Confirm, HelpModal, PickList
 from .render import (STRIP_WIDTH, connection_line, fmt_ago, fmt_duration,
                      run_strip, state_badge)
 
@@ -77,35 +77,6 @@ class ConnBar(Horizontal):
         self.query_one("#conn-left", Static).update(connection_line(info, profile_name))
 
 
-class HelpModal(ModalScreen[None]):
-    """Shows all key bindings."""
-
-    BINDINGS = [
-        Binding("escape", "dismiss", "close help"),
-        Binding("q", "dismiss", "close help"),
-        Binding("question_mark", "dismiss", "close help"),
-    ]
-
-    def compose(self) -> ComposeResult:
-        with Vertical(classes="help-modal"):
-            yield Label("Keyboard Shortcuts", classes="help-title")
-            with Horizontal(classes="help-grid"):
-                with Vertical(classes="help-col"):
-                    yield Label("[b]Navigation[/b]")
-                    yield Label("  tab    next profile")
-                    yield Label("  S-tab  prev profile")
-                    yield Label("  ↑/k    move up")
-                    yield Label("  ↓/j    move down")
-                    yield Label("  enter  drill in")
-                    yield Label("  esc    go back")
-                with Vertical(classes="help-col"):
-                    yield Label("[b]Actions[/b]")
-                    yield Label("  a      add DAG")
-                    yield Label("  f      unstar")
-                    yield Label("  t      trigger")
-                    yield Label("  r      refresh")
-                    yield Label("  ?      help")
-                    yield Label("  q      quit")
 class ProfilePane(Vertical):
     """One profile's watch list, with its own connection bar, status and table.
 
@@ -220,6 +191,7 @@ class DagsScreen(Screen):
         Binding("tab", "cycle_profile(1)", "next profile", priority=True),
         Binding("shift+tab", "cycle_profile(-1)", "prev profile", priority=True,
                 show=False),
+        Binding("p", "manage_profiles", "profiles"),
         Binding("a", "add", "add DAG"),
         Binding("f", "unstar", "unstar"),
         Binding("enter", "drill", "runs", priority=True),
@@ -270,6 +242,42 @@ class DagsScreen(Screen):
         names = self.app.profile_names
         if 1 <= index <= len(names):
             self.query_one("#profiles", TabbedContent).active = _pane_id(names[index - 1])
+
+    def action_manage_profiles(self) -> None:
+        from .profile_manager import ProfileManagerModal
+
+        def on_closed(selected: str | None) -> None:
+            self.sync_profiles(active_profile=selected)
+
+        self.app.push_screen(ProfileManagerModal(self.app.profile_name), on_closed)
+
+    def sync_profiles(self, active_profile: str | None = None) -> None:
+        tabs = self.query_one("#profiles", TabbedContent)
+        current_panes = {p.id for p in tabs.query(TabPane)}
+        new_names = self.app.profile_names
+
+        for name in new_names:
+            pid = _pane_id(name)
+            if pid not in current_panes:
+                tabs.add_pane(TabPane(self._tab_label(name), ProfilePane(name), id=pid))
+
+        new_pids = {_pane_id(n) for n in new_names}
+        for pid in current_panes:
+            if pid not in new_pids:
+                tabs.remove_pane(pid)
+
+        for name in new_names:
+            tab = tabs.get_tab(_pane_id(name))
+            if tab:
+                tab.label = self._tab_label(name)
+
+        target = active_profile or self.app.profile_name
+        if target and target in new_names:
+            tabs.active = _pane_id(target)
+            self.app.profile_name = target
+        elif new_names:
+            tabs.active = _pane_id(new_names[0])
+            self.app.profile_name = new_names[0]
 
     # --- data ---------------------------------------------------------------
     def action_refresh(self) -> None:
@@ -518,14 +526,36 @@ class AtcApp(App):
     def action_help(self) -> None:
         self.push_screen(HelpModal())
 
-    def __init__(self, provider, profile_name: str, config=None) -> None:
+    def __init__(self, provider, profile_name: str, config=None, config_path=None) -> None:
         super().__init__()
         self.profile_name = profile_name
         self.config = config
+        self.config_path = config_path
         # One live provider per profile, built on first visit and kept afterwards.
         # Keeping it is the point: a k8s provider holds an open port-forward and a
         # JWT, so tabbing back to a profile you already opened costs nothing.
         self._providers = {profile_name: provider}
+
+    def reload_config(self, new_profile: str | None = None) -> None:
+        from .. import config as cfg
+        path = self.config_path or cfg.config_path()
+        if path.exists():
+            try:
+                self.config = cfg.load(path)
+            except Exception:
+                pass
+        if new_profile and self.config and new_profile in self.config.profiles:
+            self.profile_name = new_profile
+        elif self.config and self.profile_name not in self.config.profiles:
+            self.profile_name = self.config.default or (list(self.config.profiles)[0] if self.config.profiles else self.profile_name)
+
+        if self.config:
+            for name in list(self._providers):
+                if name not in self.config.profiles:
+                    try:
+                        self._providers.pop(name).close()
+                    except Exception:
+                        pass
 
     @property
     def profile_names(self) -> list[str]:
