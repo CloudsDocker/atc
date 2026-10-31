@@ -29,6 +29,38 @@ class Confirm(ModalScreen[bool]):
         self.dismiss(event.button.id == "yes")
 
 
+class HelpModal(ModalScreen[None]):
+    """Shows all key bindings."""
+
+    BINDINGS = [
+        Binding("escape", "dismiss", "close help"),
+        Binding("q", "dismiss", "close help"),
+        Binding("question_mark", "dismiss", "close help"),
+    ]
+
+    def compose(self) -> ComposeResult:
+        with Vertical(classes="help-modal"):
+            yield Label("Keyboard Shortcuts", classes="help-title")
+            with Horizontal(classes="help-grid"):
+                with Vertical(classes="help-col"):
+                    yield Label("[b]Navigation[/b]")
+                    yield Label("  tab    next profile")
+                    yield Label("  S-tab  prev profile")
+                    yield Label("  ↑/k    move up")
+                    yield Label("  ↓/j    move down")
+                    yield Label("  enter  drill in")
+                    yield Label("  esc    go back")
+                with Vertical(classes="help-col"):
+                    yield Label("[b]Actions[/b]")
+                    yield Label("  p      profiles")
+                    yield Label("  a      add DAG")
+                    yield Label("  f      unstar")
+                    yield Label("  t      trigger")
+                    yield Label("  r      refresh")
+                    yield Label("  ?      help")
+                    yield Label("  q      quit")
+
+
 class PickList(ModalScreen[str | None]):
     """Fuzzy-ish picker used for both 'switch profile' and 'add DAG'."""
 

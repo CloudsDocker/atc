@@ -10,7 +10,7 @@ from typing import Any
 import boto3
 from botocore.exceptions import ClientError, NoCredentialsError
 
-from .config import config_dir, config_path
+from .config import config_dir, config_path, save_profile
 
 
 def run_command(cmd: list[str]) -> str:
@@ -75,30 +75,7 @@ def get_mwaa_environments(profile: str, region: str) -> list[str]:
 
 def write_to_config(profile_name: str, config_data: dict[str, Any]) -> None:
     path = config_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    
-    lines = []
-    if path.exists():
-        lines = path.read_text().splitlines()
-    
-    # If no default is set, set this as default
-    has_default = any(line.startswith("default =") for line in lines)
-    if not has_default:
-        lines.insert(0, f'default = "{profile_name}"')
-        lines.insert(1, "")
-    
-    lines.append(f"")
-    lines.append(f"[profiles.{profile_name}]")
-    for key, value in config_data.items():
-        if isinstance(value, str):
-            lines.append(f'{key} = "{value}"')
-        elif isinstance(value, bool):
-            lines.append(f'{key} = {"true" if value else "false"}')
-        else:
-            lines.append(f'{key} = {value}')
-    
-    lines.append("")
-    path.write_text("\n".join(lines) + "\n")
+    save_profile(profile_name, config_data, path=path)
     print(f"Configuration saved to {path}")
 
 
