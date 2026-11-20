@@ -16,7 +16,7 @@ inside a private Kubernetes cluster, or on MWAA with no public webserver.**
   <a href="https://airflow.apache.org/"><img src="https://img.shields.io/badge/Airflow-3.x%20%C2%B7%20%2Fapi%2Fv2-017CEE?logo=apacheairflow&logoColor=white" alt="Airflow 3"></a>
   <a href="https://textual.textualize.io/"><img src="https://img.shields.io/badge/built%20with-Textual-5E5EFF" alt="Built with Textual"></a>
   <a href="llms.txt"><img src="https://img.shields.io/badge/llms.txt-supported-8A2BE2" alt="llms.txt"></a>
-  <a href="https://cloudsdocker.github.io/atc/"><img src="https://img.shields.io/badge/docs-cloudsdocker.github.io%2Fatc-1f6feb" alt="Docs"></a>
+  <a href="https://www.todzhang.com/atc/"><img src="https://img.shields.io/badge/docs-www.todzhang.com%2Fatc-1f6feb" alt="Docs"></a>
 </p>
 
 </div>

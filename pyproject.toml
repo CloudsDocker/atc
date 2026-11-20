@@ -44,8 +44,8 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://cloudsdocker.github.io/atc/"
-Documentation = "https://cloudsdocker.github.io/atc/"
+Homepage = "https://www.todzhang.com/atc/"
+Documentation = "https://www.todzhang.com/atc/"
 Source = "https://github.com/CloudsDocker/atc"
 Repository = "https://github.com/CloudsDocker/atc"
 Issues = "https://github.com/CloudsDocker/atc/issues"
